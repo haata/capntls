@@ -7,10 +7,15 @@ use echo_capnp::echo;
 
 use rustls::{RootCertStore, ServerConfig, Session};
 use rustls::AllowAnyAuthenticatedClient;
+use rustls::NoClientAuth;
+use rustls::PrivateKey;
+use rustls::Certificate;
 use tokio_rustls::{
     TlsAcceptor,
     server::TlsStream,
 };
+use rcgen::generate_simple_self_signed;
+
 
 use openssl::x509::X509;
 
@@ -67,15 +72,28 @@ pub fn main() {
         .expect("could not parse address");
     let socket = ::tokio_core::net::TcpListener::bind(&addr, &handle).unwrap();
 
+    let subject_alt_names = vec!["localhost".to_string()];
+    let cert = generate_simple_self_signed(subject_alt_names).unwrap();
+    // The certificate is now valid for localhost and the domain "hello.world.example"
+    println!("{}", cert.serialize_pem().unwrap());
+    println!("{}", cert.serialize_private_key_pem());
+
+    let pcert = Certificate(cert.serialize_der().unwrap());
+    let pkey = PrivateKey(cert.serialize_private_key_der());
+
+
     let mut client_auth_roots = RootCertStore::empty();
     let roots = ::load_certs("test-ca/rsa/end.fullchain");
     for root in &roots {
         client_auth_roots.add(&root).unwrap();
     }
-    let client_auth = AllowAnyAuthenticatedClient::new(client_auth_roots);
+    let client_auth = NoClientAuth::new();
+    //let client_auth = AllowAnyAuthenticatedClient::new(client_auth_roots);
 
     let mut config = ServerConfig::new(client_auth);
-    config.set_single_cert(roots, ::load_private_key("test-ca/rsa/end.key")).unwrap();
+    //config.set_single_cert(roots, ::load_private_key("test-ca/rsa/end.key")).unwrap();
+	config.set_single_cert(vec![pcert], pkey)
+			.expect("invalid key or certificate");
     let config = TlsAcceptor::from(Arc::new(config));
 
     let connections = socket.incoming();
@@ -88,9 +106,10 @@ pub fn main() {
     let server = tls_handshake.map(|acceptor| {
         let handle = handle.clone();
         acceptor.and_then(move |stream| {
-            let email = get_email_from_stream(&stream);
+            //let email = get_email_from_stream(&stream);
             let echo = Echo {
-                email: email.unwrap(),
+                email: "my@email.com".to_string(),
+                //email: email.unwrap(),
             };
             let echo_client = echo::ToClient::new(echo).into_client::<::capnp_rpc::Server>();
 

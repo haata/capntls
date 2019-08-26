@@ -8,11 +8,13 @@ build = "build.rs"
 capnpc = "^0.10"
 
 [dependencies]
+rcgen = "0.5.1"
 futures = "^0.1"
 tokio-core = "^0.1"
 tokio-io = "^0.1"
 webpki = "^0.21"
-rustls = "*"
+webpki-roots = "^0.17"
+rustls = { version = "*", features = ["dangerous_configuration"] }
 tokio-rustls = "*"
 openssl = "*"
 capnp = "^0.10"

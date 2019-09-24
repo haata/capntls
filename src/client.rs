@@ -72,6 +72,14 @@ fn try_main(args: Vec<String>) -> Result<(), ::capnp::Error> {
         Promise::ok(())
     }))?;
 
+    let mut request = echo_client.echo_request();
+    request.get().set_input("helloa");
+    core.run(request.send().promise.and_then(|response| {
+        let output = pry!(response.get()).get_output().unwrap();
+        println!("{}", output);
+        Promise::ok(())
+    }))?;
+
     core.run(rpc_disconnector)?;
     Ok(())
 }

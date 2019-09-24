@@ -9,7 +9,7 @@ use rustls::{RootCertStore, ServerConfig, Session};
 use rustls::AllowAnyAuthenticatedClient;
 use tokio_rustls::{
     TlsAcceptor,
-    server::TlsStream,
+    TlsStream,
 };
 
 use openssl::x509::X509;
@@ -32,7 +32,7 @@ impl echo::Server for Echo {
     }
 }
 
-fn get_email_from_stream<IO>(stream: &TlsStream<IO>) -> Option<String> {
+fn get_email_from_stream<I, S: Session>(stream: &TlsStream<I, S>) -> Option<String> {
     let (_, session) = stream.get_ref();
     if let Some(certs) = session.get_peer_certificates() {
         for cert in certs {

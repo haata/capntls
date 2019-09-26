@@ -15,7 +15,7 @@ tokio-io = "^0.1"
 webpki = "^0.21"
 webpki-roots = "^0.17"
 rustls = { version = "*", features = ["dangerous_configuration"] }
-tokio-rustls = "*"
+tokio-rustls = ">=0.10.2"
 openssl = "*"
 capnp = "^0.10"
 capnp-rpc = "^0.10"

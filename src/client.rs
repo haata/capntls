@@ -2,16 +2,15 @@
 //use std::fs;
 use std::sync::Arc;
 
+use capnp::capability::Promise;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use echo_capnp::echo;
-use capnp::capability::Promise;
 
 use futures::Future;
 use tokio_io::AsyncRead;
 
 use rustls::ClientConfig;
 use tokio_rustls::TlsConnector;
-
 
 extern crate webpki;
 extern crate webpki_roots;
@@ -20,11 +19,13 @@ mod danger {
     pub struct NoCertificateVerification {}
 
     impl rustls::ServerCertVerifier for NoCertificateVerification {
-        fn verify_server_cert(&self,
-                              _roots: &rustls::RootCertStore,
-                              _certs: &[rustls::Certificate],
-                              _hostname: webpki::DNSNameRef<'_>,
-                              _ocsp: &[u8]) -> Result<rustls::ServerCertVerified, rustls::TLSError> {
+        fn verify_server_cert(
+            &self,
+            _roots: &rustls::RootCertStore,
+            _certs: &[rustls::Certificate],
+            _hostname: webpki::DNSNameRef<'_>,
+            _ocsp: &[u8],
+        ) -> Result<rustls::ServerCertVerified, rustls::TLSError> {
             Ok(rustls::ServerCertVerified::assertion())
         }
     }
@@ -45,13 +46,16 @@ fn try_main(args: Vec<String>) -> Result<(), ::capnp::Error> {
     let mut core = ::tokio_core::reactor::Core::new()?;
     let handle = core.handle();
 
-    let addr = args[2].to_socket_addrs()?
+    let addr = args[2]
+        .to_socket_addrs()?
         .next()
         .expect("could not parse address");
 
     //let mut pem = BufReader::new(fs::File::open("test-ca/rsa/ca.cert").unwrap());
     let mut config = ClientConfig::new();
-    config.dangerous().set_certificate_verifier(Arc::new(danger::NoCertificateVerification {}));
+    config
+        .dangerous()
+        .set_certificate_verifier(Arc::new(danger::NoCertificateVerification {}));
     //config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     /*
     config.root_store.add_pem_file(&mut pem).unwrap();

@@ -3,15 +3,15 @@ extern crate capnp;
 extern crate capnp_rpc;
 extern crate futures;
 extern crate openssl;
+extern crate rcgen;
 extern crate rustls;
 extern crate tokio_core;
 extern crate tokio_io;
 extern crate tokio_rustls;
-extern crate rcgen;
 
+mod client;
 pub mod echo_capnp;
 mod server;
-mod client;
 
 //use std::io::BufReader;
 //use std::fs;

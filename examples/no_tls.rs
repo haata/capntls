@@ -11,9 +11,9 @@ pub mod echo_capnp {
 
 pub mod server {
     use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+    use echo_capnp::echo;
     use futures::{Future, Stream};
     use tokio_io::AsyncRead;
-    use echo_capnp::echo;
 
     struct Echo;
 
@@ -71,9 +71,9 @@ pub mod server {
 }
 
 pub mod client {
+    use capnp::capability::Promise;
     use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
     use echo_capnp::echo;
-    use capnp::capability::Promise;
 
     use futures::Future;
     use tokio_io::AsyncRead;
@@ -94,7 +94,8 @@ pub mod client {
         let mut core = ::tokio_core::reactor::Core::new()?;
         let handle = core.handle();
 
-        let addr = args[2].to_socket_addrs()?
+        let addr = args[2]
+            .to_socket_addrs()?
             .next()
             .expect("could not parse address");
 

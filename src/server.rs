@@ -1,25 +1,17 @@
 use std::sync::Arc;
 
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+use echo_capnp::echo;
 use futures::{Future, Stream};
 use tokio_io::AsyncRead;
-use echo_capnp::echo;
 
-use rustls::{
-	//RootCertStore,
-	ServerConfig,
-	//Session
-};
+use rustls::ServerConfig;
 //use rustls::AllowAnyAuthenticatedClient;
+use rcgen::generate_simple_self_signed;
+use rustls::Certificate;
 use rustls::NoClientAuth;
 use rustls::PrivateKey;
-use rustls::Certificate;
-use tokio_rustls::{
-    TlsAcceptor,
-    //server::TlsStream,
-};
-use rcgen::generate_simple_self_signed;
-
+use tokio_rustls::TlsAcceptor;
 
 //use openssl::x509::X509;
 
@@ -87,21 +79,21 @@ pub fn main() {
     let pcert = Certificate(cert.serialize_der().unwrap());
     let pkey = PrivateKey(cert.serialize_private_key_der());
 
-
-	/*
+    /*
     let mut client_auth_roots = RootCertStore::empty();
     let roots = ::load_certs("test-ca/rsa/end.fullchain");
     for root in &roots {
         client_auth_roots.add(&root).unwrap();
     }
-	*/
+    */
     let client_auth = NoClientAuth::new();
     //let client_auth = AllowAnyAuthenticatedClient::new(client_auth_roots);
 
     let mut config = ServerConfig::new(client_auth);
     //config.set_single_cert(roots, ::load_private_key("test-ca/rsa/end.key")).unwrap();
-	config.set_single_cert(vec![pcert], pkey)
-			.expect("invalid key or certificate");
+    config
+        .set_single_cert(vec![pcert], pkey)
+        .expect("invalid key or certificate");
     let config = TlsAcceptor::from(Arc::new(config));
 
     let connections = socket.incoming();
@@ -137,5 +129,6 @@ pub fn main() {
     core.run(server.for_each(|client| {
         handle.spawn(client.map_err(|e| println!("{}", e)));
         Ok(())
-    })).unwrap();
+    }))
+    .unwrap();
 }

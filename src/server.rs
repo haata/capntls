@@ -5,19 +5,23 @@ use futures::{Future, Stream};
 use tokio_io::AsyncRead;
 use echo_capnp::echo;
 
-use rustls::{RootCertStore, ServerConfig, Session};
-use rustls::AllowAnyAuthenticatedClient;
+use rustls::{
+	//RootCertStore,
+	ServerConfig,
+	//Session
+};
+//use rustls::AllowAnyAuthenticatedClient;
 use rustls::NoClientAuth;
 use rustls::PrivateKey;
 use rustls::Certificate;
 use tokio_rustls::{
     TlsAcceptor,
-    server::TlsStream,
+    //server::TlsStream,
 };
 use rcgen::generate_simple_self_signed;
 
 
-use openssl::x509::X509;
+//use openssl::x509::X509;
 
 struct Echo {
     email: String,
@@ -37,6 +41,7 @@ impl echo::Server for Echo {
     }
 }
 
+/*
 fn get_email_from_stream<IO>(stream: &TlsStream<IO>) -> Option<String> {
     let (_, session) = stream.get_ref();
     if let Some(certs) = session.get_peer_certificates() {
@@ -53,6 +58,7 @@ fn get_email_from_stream<IO>(stream: &TlsStream<IO>) -> Option<String> {
     }
     None
 }
+*/
 
 pub fn main() {
     use std::net::ToSocketAddrs;
@@ -82,11 +88,13 @@ pub fn main() {
     let pkey = PrivateKey(cert.serialize_private_key_der());
 
 
+	/*
     let mut client_auth_roots = RootCertStore::empty();
     let roots = ::load_certs("test-ca/rsa/end.fullchain");
     for root in &roots {
         client_auth_roots.add(&root).unwrap();
     }
+	*/
     let client_auth = NoClientAuth::new();
     //let client_auth = AllowAnyAuthenticatedClient::new(client_auth_roots);
 

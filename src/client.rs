@@ -1,5 +1,5 @@
-use std::io::BufReader;
-use std::fs;
+//use std::io::BufReader;
+//use std::fs;
 use std::sync::Arc;
 
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
@@ -49,7 +49,7 @@ fn try_main(args: Vec<String>) -> Result<(), ::capnp::Error> {
         .next()
         .expect("could not parse address");
 
-    let mut pem = BufReader::new(fs::File::open("test-ca/rsa/ca.cert").unwrap());
+    //let mut pem = BufReader::new(fs::File::open("test-ca/rsa/ca.cert").unwrap());
     let mut config = ClientConfig::new();
     config.dangerous().set_certificate_verifier(Arc::new(danger::NoCertificateVerification {}));
     //config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);

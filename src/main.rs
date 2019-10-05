@@ -13,15 +13,18 @@ pub mod echo_capnp;
 mod server;
 mod client;
 
-use std::io::BufReader;
-use std::fs;
+//use std::io::BufReader;
+//use std::fs;
 
+/*
 fn load_certs(filename: &str) -> Vec<rustls::Certificate> {
     let certfile = fs::File::open(filename).expect("cannot open certificate file");
     let mut reader = BufReader::new(certfile);
     rustls::internal::pemfile::certs(&mut reader).unwrap()
 }
+*/
 
+/*
 fn load_private_key(filename: &str) -> rustls::PrivateKey {
     let rsa_keys = {
         let keyfile = fs::File::open(filename).expect("cannot open private key file");
@@ -45,6 +48,7 @@ fn load_private_key(filename: &str) -> rustls::PrivateKey {
         rsa_keys[0].clone()
     }
 }
+*/
 
 pub fn main() {
     let args: Vec<String> = ::std::env::args().collect();

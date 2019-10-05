@@ -9,7 +9,7 @@ cargo run --example server localhost:3277
 cargo run --example client localhost:3277
 ```
 
-Two pycapnp are also provided
+Two pycapnp examples are also provided
 ```
 cargo run server localhost:3278
 cd pytest

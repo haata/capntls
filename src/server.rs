@@ -13,8 +13,6 @@ use rustls::NoClientAuth;
 use rustls::PrivateKey;
 use tokio_rustls::TlsAcceptor;
 
-//use openssl::x509::X509;
-
 struct Echo {
     email: String,
 }
@@ -32,25 +30,6 @@ impl echo::Server for Echo {
         ::capnp::capability::Promise::ok(())
     }
 }
-
-/*
-fn get_email_from_stream<IO>(stream: &TlsStream<IO>) -> Option<String> {
-    let (_, session) = stream.get_ref();
-    if let Some(certs) = session.get_peer_certificates() {
-        for cert in certs {
-            let x509 = X509::from_der(&cert.0).unwrap();
-            if let Some(sans) = x509.subject_alt_names() {
-                for san in sans {
-                    if let Some(e) = san.email() {
-                        return Some(e.to_owned());
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-*/
 
 pub fn main() {
     let args: Vec<String> = ::std::env::args().collect();
@@ -109,10 +88,8 @@ pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
     let server = tls_handshake.map(|acceptor| {
         let handle = handle.clone();
         acceptor.and_then(move |stream| {
-            //let email = get_email_from_stream(&stream);
             let echo = Echo {
                 email: "my@email.com".to_string(),
-                //email: email.unwrap(),
             };
             let echo_client = echo::ToClient::new(echo).into_client::<::capnp_rpc::Server>();
 

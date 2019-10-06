@@ -2,7 +2,6 @@ extern crate capnp;
 #[macro_use]
 extern crate capnp_rpc;
 extern crate futures;
-extern crate openssl;
 extern crate rcgen;
 extern crate rustls;
 extern crate tokio_core;

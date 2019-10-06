@@ -1,0 +1,107 @@
+name: Rust Linux
+
+on: [push, pull_request]
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get install ninja-build -y
+          # Install capnproto
+          curl -O https://capnproto.org/capnproto-c++-0.7.0.tar.gz
+          tar zxf capnproto-c++-0.7.0.tar.gz
+          cd capnproto-c++-0.7.0
+          mkdir -p build
+          cd build
+          cmake .. -G 'Ninja'
+          cmake --build .
+          sudo cmake --build . --target install
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get install ninja-build -y
+          # Install capnproto
+          curl -O https://capnproto.org/capnproto-c++-0.7.0.tar.gz
+          tar zxf capnproto-c++-0.7.0.tar.gz
+          cd capnproto-c++-0.7.0
+          mkdir -p build
+          cd build
+          cmake .. -G 'Ninja'
+          cmake --build .
+          sudo cmake --build . --target install
+          # Install pipenv
+          python -m pip install --upgrade pip
+          python -m pip install pipenv
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+      # TODO Once pycapnp is installing correctly
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get install ninja-build -y
+          # Install capnproto
+          curl -O https://capnproto.org/capnproto-c++-0.7.0.tar.gz
+          tar zxf capnproto-c++-0.7.0.tar.gz
+          cd capnproto-c++-0.7.0
+          mkdir -p build
+          cd build
+          cmake .. -G 'Ninja'
+          cmake --build .
+          sudo cmake --build . --target install
+      - run: rustup component add clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings

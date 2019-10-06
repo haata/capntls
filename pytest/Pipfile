@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 cython = "==0.29.12"
 pycapnp = {editable = true,git = "https://github.com/haata/pycapnp",ref = "develop"}
+pytest = "*"
 
 [requires]
 python_version = "3.7"

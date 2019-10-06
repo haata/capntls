@@ -28,4 +28,10 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-      # TODO Once pycapnp is installing correctly
+      - name: Install pycapnp dependencies and run test
+        run: |
+          cd pytest
+#pipenv install cython==0.29
+#pipenv install -e 'git+https://github.com/haata/pycapnp@develop#egg=pycapnp'
+#pipenv install
+#pipenv run pytest

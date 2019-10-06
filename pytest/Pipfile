@@ -6,8 +6,8 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-cython = "==0.29.12"
-pycapnp = {editable = true,git = "https://github.com/haata/pycapnp",ref = "develop"}
+cython = "==0.29"
+pycapnp = {editable = true, ref = "develop", git = "https://github.com/haata/pycapnp"}
 pytest = "*"
 
 [requires]

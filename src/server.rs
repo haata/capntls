@@ -53,22 +53,25 @@ fn get_email_from_stream<IO>(stream: &TlsStream<IO>) -> Option<String> {
 */
 
 pub fn main() {
-    use std::net::ToSocketAddrs;
     let args: Vec<String> = ::std::env::args().collect();
     if args.len() != 3 {
         println!("usage: {} server HOST:PORT", args[0]);
         return;
     }
+    try_main(args[2].to_string()).unwrap();
+}
 
-    let mut core = ::tokio_core::reactor::Core::new().unwrap();
+pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
+    use std::net::ToSocketAddrs;
+
+    let mut core = ::tokio_core::reactor::Core::new()?;
     let handle = core.handle();
 
-    let addr = args[2]
-        .to_socket_addrs()
-        .unwrap()
+    let addr = addr_port
+        .to_socket_addrs()?
         .next()
         .expect("could not parse address");
-    let socket = ::tokio_core::net::TcpListener::bind(&addr, &handle).unwrap();
+    let socket = ::tokio_core::net::TcpListener::bind(&addr, &handle)?;
 
     let subject_alt_names = vec!["localhost".to_string()];
     let cert = generate_simple_self_signed(subject_alt_names).unwrap();
@@ -129,6 +132,6 @@ pub fn main() {
     core.run(server.for_each(|client| {
         handle.spawn(client.map_err(|e| println!("{}", e)));
         Ok(())
-    }))
-    .unwrap();
+    }))?;
+    Ok(())
 }

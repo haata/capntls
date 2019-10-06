@@ -37,16 +37,16 @@ pub fn main() {
         println!("usage: {} client HOST:PORT", args[0]);
         return;
     }
-    try_main(args).unwrap();
+    try_main(args[2].to_string()).unwrap();
 }
 
-fn try_main(args: Vec<String>) -> Result<(), ::capnp::Error> {
+pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
     use std::net::ToSocketAddrs;
 
     let mut core = ::tokio_core::reactor::Core::new()?;
     let handle = core.handle();
 
-    let addr = args[2]
+    let addr = addr_port
         .to_socket_addrs()?
         .next()
         .expect("could not parse address");

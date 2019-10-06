@@ -62,3 +62,19 @@ pub fn main() {
 
     println!("usage: {} [client | server] HOST:PORT", args[0]);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn test_rust_client_rust_server() {
+        thread::spawn(|| {
+            server::try_main("localhost:31111".to_string()).unwrap();
+        });
+        thread::sleep(Duration::from_millis(100));
+        client::try_main("localhost:31111".to_string()).unwrap();
+    }
+}

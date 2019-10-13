@@ -31,8 +31,7 @@ jobs:
       - name: Install pycapnp dependencies and run test
         run: |
           cd pytest
+          python -m pip install cython pytest
 # TODO Once pycapnp is working on windows, add pytest
-#pipenv install cython==0.29
-#pipenv install -e 'git+https://github.com/haata/pycapnp@develop#egg=pycapnp'
-#pipenv install
-#pipenv run pytest
+#python -m pip install git+https://github.com/haata/pycapnp.git@develop#egg=pycapnp
+#pytest -vvv

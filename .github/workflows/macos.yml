@@ -22,16 +22,13 @@ jobs:
       - name: Install dependencies
         run: |
           brew install capnp
-          # Install pipenv
           python -m pip install --upgrade pip
-          python -m pip install pipenv
       - uses: actions-rs/cargo@v1
         with:
           command: test
       - name: Install pycapnp dependencies and run test
         run: |
           cd pytest
-#pipenv install cython==0.29
-#pipenv install -e 'git+https://github.com/haata/pycapnp@develop#egg=pycapnp'
-#pipenv install
-#pipenv run pytest
+          python -m pip install cython pytest
+          python -m pip install git+https://github.com/haata/pycapnp.git@develop#egg=pycapnp
+          pytest -vvv

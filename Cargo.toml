@@ -3,18 +3,21 @@ name = "capntls"
 version = "1.0.1"
 authors = ["Ian P. Cooke <ipc@informatic.io>"]
 build = "build.rs"
+edition = "2018"
 
 [build-dependencies]
-capnpc = "^0.10"
+capnpc = "^0.13"
 
 [dependencies]
-rcgen = "0.5.1"
-futures = "^0.1"
-tokio-core = "^0.1"
-tokio-io = "^0.1"
+async-std = "^1.6"
+rcgen = "^0.8"
+futures = "^0.3"
+tokio = { version = "^0.2", features = ["net", "rt-util", "tcp", "macros", "blocking"]}
+tokio-util = { version = "^0.3", features = ["compat"] }
+tokio-test = "*"
 webpki = "^0.21"
-webpki-roots = "^0.17"
-rustls = { version = "*", features = ["dangerous_configuration"] }
-tokio-rustls = ">=0.10.2"
-capnp = "^0.10"
-capnp-rpc = "^0.10"
+webpki-roots = "^0.20"
+rustls = { version = "^0.18", features = ["dangerous_configuration"] }
+tokio-rustls = ">=0.14.1"
+capnp = "^0.13"
+capnp-rpc = "^0.13"

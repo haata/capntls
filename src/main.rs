@@ -1,12 +1,5 @@
-extern crate capnp;
 #[macro_use]
 extern crate capnp_rpc;
-extern crate futures;
-extern crate rcgen;
-extern crate rustls;
-extern crate tokio_core;
-extern crate tokio_io;
-extern crate tokio_rustls;
 
 mod client;
 pub mod echo_capnp;
@@ -49,31 +42,39 @@ fn load_private_key(filename: &str) -> rustls::PrivateKey {
 }
 */
 
-pub fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = ::std::env::args().collect();
     if args.len() >= 2 {
         match &args[1][..] {
-            "client" => return client::main(),
-            "server" => return server::main(),
+            "client" => return client::main().await,
+            "server" => return server::main().await,
             _ => (),
         }
     }
 
     println!("usage: {} [client | server] HOST:PORT", args[0]);
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
+    use async_std;
     use std::time::Duration;
 
-    #[test]
-    fn test_rust_client_rust_server() {
-        thread::spawn(|| {
-            server::try_main("localhost:31111".to_string()).unwrap();
-        });
-        thread::sleep(Duration::from_millis(100));
-        client::try_main("localhost:31111".to_string()).unwrap();
+    #[tokio::test]
+    async fn test_rust_client_rust_server() {
+        let local = tokio::task::LocalSet::new();
+        let server = server::try_main("localhost:31111".to_string());
+        local.spawn_local(server);
+
+        let client = client::try_main("localhost:31111".to_string());
+        local
+            .run_until(async {
+                async_std::task::sleep(Duration::from_millis(100)).await;
+                client.await.unwrap();
+            })
+            .await;
     }
 }

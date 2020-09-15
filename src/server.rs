@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
+use crate::echo_capnp::echo;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-use echo_capnp::echo;
-use futures::{Future, Stream};
-use tokio_io::AsyncRead;
+use futures::{AsyncReadExt, FutureExt, TryFutureExt};
 
 use rustls::ServerConfig;
 //use rustls::AllowAnyAuthenticatedClient;
@@ -31,26 +30,24 @@ impl echo::Server for Echo {
     }
 }
 
-pub fn main() {
+pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = ::std::env::args().collect();
     if args.len() != 3 {
         println!("usage: {} server HOST:PORT", args[0]);
-        return;
+        return Ok(());
     }
-    try_main(args[2].to_string()).unwrap();
+    tokio::task::LocalSet::new()
+        .run_until(try_main(args[2].clone()))
+        .await
 }
 
-pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
+pub async fn try_main(addr_port: String) -> Result<(), Box<dyn std::error::Error>> {
     use std::net::ToSocketAddrs;
-
-    let mut core = ::tokio_core::reactor::Core::new()?;
-    let handle = core.handle();
 
     let addr = addr_port
         .to_socket_addrs()?
         .next()
         .expect("could not parse address");
-    let socket = ::tokio_core::net::TcpListener::bind(&addr, &handle)?;
 
     let subject_alt_names = vec!["localhost".to_string()];
     let cert = generate_simple_self_signed(subject_alt_names).unwrap();
@@ -76,39 +73,33 @@ pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
     config
         .set_single_cert(vec![pcert], pkey)
         .expect("invalid key or certificate");
-    let config = TlsAcceptor::from(Arc::new(config));
+    let acceptor = TlsAcceptor::from(Arc::new(config));
 
-    let connections = socket.incoming();
+    let mut listener = tokio::net::TcpListener::bind(&addr).await?;
 
-    let tls_handshake = connections.map(|(socket, _addr)| {
-        socket.set_nodelay(true).unwrap();
-        config.accept(socket)
-    });
+    loop {
+        let (stream, _addr) = listener.accept().await?;
+        stream.set_nodelay(true)?;
+        let acceptor = acceptor.clone();
+        let stream = acceptor.accept(stream).await?;
+        let (reader, writer) =
+            tokio_util::compat::Tokio02AsyncReadCompatExt::compat(stream).split();
 
-    let server = tls_handshake.map(|acceptor| {
-        let handle = handle.clone();
-        acceptor.and_then(move |stream| {
-            let echo = Echo {
-                email: "my@email.com".to_string(),
-            };
-            let echo_client = echo::ToClient::new(echo).into_client::<::capnp_rpc::Server>();
-
-            let (reader, writer) = stream.split();
-            let network = twoparty::VatNetwork::new(
-                reader,
-                writer,
-                rpc_twoparty_capnp::Side::Server,
-                Default::default(),
-            );
-
-            let rpc_system = RpcSystem::new(Box::new(network), Some(echo_client.client));
-            handle.spawn(rpc_system.map_err(|e| println!("{}", e)));
-            Ok(())
-        })
-    });
-    core.run(server.for_each(|client| {
-        handle.spawn(client.map_err(|e| println!("{}", e)));
-        Ok(())
-    }))?;
-    Ok(())
+        let echo = Echo {
+            email: "my@email.com".to_string(),
+        };
+        let echo_server: echo::Client = capnp_rpc::new_client(echo);
+        let network = twoparty::VatNetwork::new(
+            reader,
+            writer,
+            rpc_twoparty_capnp::Side::Server,
+            Default::default(),
+        );
+        let rpc_system = RpcSystem::new(Box::new(network), Some(echo_server.client));
+        tokio::task::spawn_local(Box::pin(
+            rpc_system
+                .map_err(|e| println!("error: {:?}", e))
+                .map(|_| ()),
+        ));
+    }
 }

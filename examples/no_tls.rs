@@ -1,19 +1,14 @@
-extern crate capnp;
 #[macro_use]
 extern crate capnp_rpc;
-extern crate futures;
-extern crate tokio_core;
-extern crate tokio_io;
 
 pub mod echo_capnp {
     include!(concat!(env!("OUT_DIR"), "/schema/echo_capnp.rs"));
 }
 
 pub mod server {
+    use crate::echo_capnp::echo;
     use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-    use echo_capnp::echo;
-    use futures::{Future, Stream};
-    use tokio_io::AsyncRead;
+    use futures::{AsyncReadExt, FutureExt, TryFutureExt};
 
     struct Echo;
 
@@ -29,79 +24,69 @@ pub mod server {
         }
     }
 
-    pub fn main() {
+    pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         use std::net::ToSocketAddrs;
         let args: Vec<String> = ::std::env::args().collect();
         if args.len() != 3 {
             println!("usage: {} server HOST:PORT", args[0]);
-            return;
+            return Ok(());
         }
-
-        let mut core = ::tokio_core::reactor::Core::new().unwrap();
-        let handle = core.handle();
 
         let addr = args[2]
             .to_socket_addrs()
             .unwrap()
             .next()
             .expect("could not parse address");
-        let socket = ::tokio_core::net::TcpListener::bind(&addr, &handle).unwrap();
 
-        let echo_server = echo::ToClient::new(Echo).into_client::<::capnp_rpc::Server>();
+        tokio::task::LocalSet::new()
+            .run_until(async move {
+                let mut socket = tokio::net::TcpListener::bind(&addr).await?;
 
-        let connections = socket.incoming();
-        let server = connections.for_each(|(stream, _addr)| {
-            let handle = handle.clone();
-            let echo_server = echo_server.clone();
-            let (reader, writer) = stream.split();
+                let echo_server: echo::Client = capnp_rpc::new_client(Echo);
 
-            let network = twoparty::VatNetwork::new(
-                reader,
-                writer,
-                rpc_twoparty_capnp::Side::Server,
-                Default::default(),
-            );
+                loop {
+                    let (stream, _addr) = socket.accept().await?;
+                    stream.set_nodelay(true)?;
+                    let (reader, writer) =
+                        tokio_util::compat::Tokio02AsyncReadCompatExt::compat(stream).split();
 
-            let rpc_system = RpcSystem::new(Box::new(network), Some(echo_server.client));
-            handle.spawn(rpc_system.map_err(|e| println!("rpc error: {:?}", e)));
-            Ok(())
-        });
-        core.run(server).unwrap();
+                    let network = twoparty::VatNetwork::new(
+                        reader,
+                        writer,
+                        rpc_twoparty_capnp::Side::Server,
+                        Default::default(),
+                    );
+
+                    let rpc_system =
+                        RpcSystem::new(Box::new(network), Some(echo_server.clone().client));
+                    tokio::task::spawn_local(Box::pin(
+                        rpc_system
+                            .map_err(|e| println!("error: {:?}", e))
+                            .map(|_| ()),
+                    ));
+                }
+            })
+            .await
     }
 }
 
 pub mod client {
-    use capnp::capability::Promise;
+    use crate::echo_capnp::echo;
     use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-    use echo_capnp::echo;
+    use futures::{AsyncReadExt, FutureExt};
 
-    use futures::Future;
-    use tokio_io::AsyncRead;
-
-    pub fn main() {
-        let args: Vec<String> = ::std::env::args().collect();
-        if args.len() != 3 {
-            println!("usage: {} client HOST:PORT", args[0]);
-            return;
-        }
-
-        try_main(args).unwrap();
-    }
-
-    fn try_main(args: Vec<String>) -> Result<(), ::capnp::Error> {
+    async fn try_main(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
         use std::net::ToSocketAddrs;
-
-        let mut core = ::tokio_core::reactor::Core::new()?;
-        let handle = core.handle();
 
         let addr = args[2]
             .to_socket_addrs()?
             .next()
             .expect("could not parse address");
 
-        let socket = ::tokio_core::net::TcpStream::connect(&addr, &handle);
-        let stream = core.run(socket).unwrap();
-        let (reader, writer) = stream.split();
+        let stream = tokio::net::TcpStream::connect(&addr).await?;
+        stream.set_nodelay(true)?;
+        let (reader, writer) =
+            tokio_util::compat::Tokio02AsyncReadCompatExt::compat(stream).split();
 
         let network = Box::new(twoparty::VatNetwork::new(
             reader,
@@ -111,28 +96,38 @@ pub mod client {
         ));
         let mut rpc_system = RpcSystem::new(network, None);
         let echo_client: echo::Client = rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
-        handle.spawn(rpc_system.map_err(|e| println!("rpc error: {:?}", e)));
+
+        tokio::task::spawn_local(Box::pin(rpc_system.map(|_| ())));
 
         let mut request = echo_client.echo_request();
         request.get().set_input("hello");
-        core.run(request.send().promise.and_then(|response| {
-            let output = pry!(response.get()).get_output().unwrap();
-            println!("{}", output);
-            Promise::ok(())
-        }))?;
+        let response = request.send().promise.await?;
+        let output = response.get()?.get_output().unwrap();
+        println!("{}", output);
         Ok(())
+    }
+
+    pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
+        let args: Vec<String> = ::std::env::args().collect();
+        if args.len() != 3 {
+            println!("usage: {} client HOST:PORT", args[0]);
+            return Ok(());
+        }
+        tokio::task::LocalSet::new().run_until(try_main(args)).await
     }
 }
 
-pub fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = ::std::env::args().collect();
     if args.len() >= 2 {
         match &args[1][..] {
-            "client" => return client::main(),
-            "server" => return server::main(),
+            "client" => return client::main().await,
+            "server" => return server::main().await,
             _ => (),
         }
     }
 
     println!("usage: {} [client | server] HOST:PORT", args[0]);
+    Ok(())
 }

@@ -2,18 +2,13 @@
 //use std::fs;
 use std::sync::Arc;
 
-use capnp::capability::Promise;
+use crate::echo_capnp::echo;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-use echo_capnp::echo;
 
-use futures::Future;
-use tokio_io::AsyncRead;
+use futures::{AsyncReadExt, FutureExt};
 
 use rustls::ClientConfig;
 use tokio_rustls::TlsConnector;
-
-extern crate webpki;
-extern crate webpki_roots;
 
 mod danger {
     pub struct NoCertificateVerification {}
@@ -31,20 +26,19 @@ mod danger {
     }
 }
 
-pub fn main() {
+pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = ::std::env::args().collect();
     if args.len() != 3 {
         println!("usage: {} client HOST:PORT", args[0]);
-        return;
+        return Ok(());
     }
-    try_main(args[2].to_string()).unwrap();
+    tokio::task::LocalSet::new()
+        .run_until(try_main(args[2].clone()))
+        .await
 }
 
-pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
+pub async fn try_main(addr_port: String) -> Result<(), Box<dyn std::error::Error>> {
     use std::net::ToSocketAddrs;
-
-    let mut core = ::tokio_core::reactor::Core::new()?;
-    let handle = core.handle();
 
     let addr = addr_port
         .to_socket_addrs()?
@@ -64,18 +58,15 @@ pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
         ::load_private_key("test-ca/rsa/client.key"),
     );
     */
-    let config = TlsConnector::from(Arc::new(config));
+    let connector = TlsConnector::from(Arc::new(config));
 
     let domain = webpki::DNSNameRef::try_from_ascii_str("localhost").unwrap();
 
-    let socket = ::tokio_core::net::TcpStream::connect(&addr, &handle);
-    let tls_handshake = socket.and_then(|socket| {
-        socket.set_nodelay(true).unwrap();
-        config.connect(domain, socket)
-    });
+    let stream = tokio::net::TcpStream::connect(&addr).await?;
+    stream.set_nodelay(true)?;
+    let stream = connector.connect(domain, stream).await?;
 
-    let stream = core.run(tls_handshake).unwrap();
-    let (reader, writer) = stream.split();
+    let (reader, writer) = tokio_util::compat::Tokio02AsyncReadCompatExt::compat(stream).split();
 
     let network = Box::new(twoparty::VatNetwork::new(
         reader,
@@ -86,16 +77,14 @@ pub fn try_main(addr_port: String) -> Result<(), ::capnp::Error> {
     let mut rpc_system = RpcSystem::new(network, None);
     let echo_client: echo::Client = rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
     let rpc_disconnector = rpc_system.get_disconnector();
-    handle.spawn(rpc_system.map_err(|e| println!("{}", e)));
+    tokio::task::spawn_local(Box::pin(rpc_system.map(|_| ())));
 
     let mut request = echo_client.echo_request();
     request.get().set_input("hello");
-    core.run(request.send().promise.and_then(|response| {
-        let output = pry!(response.get()).get_output().unwrap();
-        println!("{}", output);
-        Promise::ok(())
-    }))?;
+    let response = request.send().promise.await?;
+    let output = response.get()?.get_output().unwrap();
+    println!("{}", output);
 
-    core.run(rpc_disconnector)?;
+    rpc_disconnector.await?;
     Ok(())
 }
